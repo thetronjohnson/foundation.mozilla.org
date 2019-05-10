@@ -1,6 +1,7 @@
 #pni-home {
   .page-header {
-    background: url(/_images/buyers-guide/home-banner-valentines.jpg) center center / cover no-repeat;
+    background: url(/_images/buyers-guide/home-banner.jpg) center center / cover
+      no-repeat;
     height: 200px;
 
     @media (min-width: $bp-md) {
@@ -14,7 +15,7 @@
     .user-rated {
       font-family: "Zilla Slab";
       font-size: 18px;
-      color: #9b9b9b;
+      color: $gray-40;
       font-style: italic;
 
       @media screen and (min-width: 750px) {
@@ -123,7 +124,12 @@
     @media (min-width: $bp-xl) {
       // on extra large screen we want project-list-section's width to match
       // Bootstrap's .container's width
-      width: calc(#{map-get($container-max-widths, xl)} - #{map-get($grid-gutter-widths, xl)});
+      width: calc(
+        #{map-get($container-max-widths, xl)} - #{map-get(
+            $grid-gutter-widths,
+            xl
+          )}
+      );
       max-width: 100%;
       margin: 0 auto;
     }
@@ -140,7 +146,7 @@
       font-weight: 400;
 
       @include hover-focus-active {
-        color: $bg-link-blue;
+        color: $blue;
       }
     }
   }
@@ -189,11 +195,11 @@
         .text {
           display: inline-block;
           height: $sb-height;
-          background: #f4f4f4;
+          background: $gray-05;
           border-radius: 1em 0 0 1em;
           line-height: 2em;
           padding: 0.25em 0 0.25em 1em;
-          color: #777777;
+          color: $gray-80;
         }
 
         .hook {

@@ -1,4 +1,4 @@
-#pni-about .main-content .h4-heading {
+#pni-about .main-content .h3-heading {
   margin-top: 2.5rem;
   margin-bottom: 0.75rem;
 }
@@ -34,7 +34,7 @@
   a second click closes it.
 */
 #pni-about .criteria-accordion {
-  input[type=checkbox].accordion-helper {
+  input[type="checkbox"].accordion-helper {
     display: block;
     height: 0;
 
@@ -46,7 +46,7 @@
     & + label.foldable {
       cursor: pointer;
       position: relative;
-      border: 1px solid lightgrey;
+      border: 1px solid $gray-20;
       border-width: 1px 0;
       padding: $foldable-padding 0;
       margin-bottom: 0;
@@ -64,7 +64,7 @@
         bottom: 0;
 
         &:focus {
-          background: red;
+          background: $dark-red;
           bottom: 100%;
 
           & + h2 {
@@ -90,7 +90,7 @@
       }
 
       h2::after {
-        content: ' ';
+        content: " ";
         display: block;
         position: absolute;
         right: 0;
@@ -99,7 +99,6 @@
         background-size: 100% 100%;
         width: $icon-dimension;
         height: $icon-dimension;
-        opacity: 0.3;
         transition: transform 100ms ease-in-out;
         transform-origin: 50% 50%;
       }

@@ -22,28 +22,38 @@ button:hover {
 #hero {
   $bg-pattern-height: 144px;
 
-  &::before {
+  .banner {
     position: absolute;
-    content: "";
-    background: url(../_images/banner-black-white-marble.jpg) no-repeat top right;
-    background-size: cover;
     height: $bg-pattern-height;
     width: 100%;
+    overflow: hidden;
+
+    img {
+      position: absolute;
+      top: 0;
+      left: 0;
+      min-width: $bp-sm;
+
+      @media screen and (min-width: $bp-sm) {
+        min-width: 100%;
+      }
+    }
   }
 
   .cutout {
+    $grid-gutter-width: map-get($grid-gutter-widths, xs);
+    $padding-x: #{$grid-gutter-width / 2};
+
     margin-top: calc(#{$bg-pattern-height} - 40px);
-    background: white;
+    background: $white;
+    padding-left: $padding-x;
+    padding-right: $padding-x;
 
-    p a {
-      color: $black;
-      font-weight: 400;
-      text-decoration: underline solid $blue;
+    @media screen and (min-width: $bp-md) {
+      $offset-left: 24px;
 
-      @include hover-focus-active {
-        text-decoration: underline solid $dark-blue;
-        color: $dark-blue;
-      }
+      margin-left: -$offset-left;
+      padding-left: $offset-left;
     }
   }
 }
@@ -55,4 +65,28 @@ button:hover {
   p {
     color: transparentize($white, 0.5);
   }
+}
+
+.ih-cta {
+  border-bottom: 1px solid $black;
+  border-top: 1px solid $black;
+}
+
+.donate-banner {
+  background: $blue;
+}
+
+footer.site-footer {
+  background: $black;
+
+  .link-list {
+    @media (min-width: $bp-md) {
+      column-count: 2;
+      break-inside: avoid-column;
+    }
+  }
+}
+
+hr.intro-and-content-divider {
+  @include intro-and-content-spacing(true);
 }

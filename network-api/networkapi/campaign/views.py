@@ -9,24 +9,35 @@ import boto3
 import logging
 import json
 
-from networkapi.wagtailpages.models import Petition
+from networkapi.wagtailpages.models import Petition, Signup
 
-# Google sheet SQS client
-gs_sqs = False
 
-if settings.AWS_SQS_ACCESS_KEY_ID:
-    gs_sqs = boto3.client(
-        'sqs',
-        region_name=settings.AWS_SQS_REGION,
-        aws_access_key_id=settings.AWS_SQS_ACCESS_KEY_ID,
-        aws_secret_access_key=settings.AWS_SQS_SECRET_ACCESS_KEY,
-    )
+class SQSProxy:
+    """
+    We use a proxy class to make sure that code that
+    relies on SQS posting still works, even when there
+    is no "real" sqs client available to work with.
+    """
+
+    def send_message(self, QueueUrl, MessageBody):
+        """
+        As a proxy function, the only thing we report
+        is that "things succeeded!" even though nothing
+        actually happened.
+        """
+
+        return {
+            'MessageId': True
+        }
+
 
 # Basket/Salesforce SQS client
-crm_sqs = False
+crm_sqs = {
+    'client': SQSProxy()
+}
 
 if settings.CRM_AWS_SQS_ACCESS_KEY_ID:
-    crm_sqs = boto3.client(
+    crm_sqs['client'] = boto3.client(
         'sqs',
         region_name=settings.CRM_AWS_SQS_REGION,
         aws_access_key_id=settings.CRM_AWS_SQS_ACCESS_KEY_ID,
@@ -37,10 +48,23 @@ if settings.CRM_AWS_SQS_ACCESS_KEY_ID:
 # sqs destination for salesforce
 crm_queue_url = settings.CRM_PETITION_SQS_QUEUE_URL
 
-# sqs destination for google sheets
-gs_queue_url = settings.PETITION_SQS_QUEUE_URL
-
 logger = logging.getLogger(__name__)
+
+
+@api_view(['POST'])
+@parser_classes((JSONParser,))
+@permission_classes((permissions.AllowAny,))
+def signup_submission_view(request, pk):
+    try:
+        signup = Signup.objects.get(id=pk)
+    except ObjectDoesNotExist:
+        # Create a "default" Signup object, but without
+        # actually saving that object to the database,
+        # because we really just want to use it for getting
+        # the default newsletter to sign up for.
+        signup = Signup()
+
+    return signup_submission(request, signup)
 
 
 @api_view(['POST'])
@@ -55,39 +79,30 @@ def petition_submission_view(request, pk):
             status=status.HTTP_400_BAD_REQUEST,
         )
 
-    if petition.legacy_petition is True:
-        return legacy_petition_submission(request, petition)
-    else:
-        return petition_submission(request, petition)
+    return petition_submission(request, petition)
 
 
-# handle Google-sheet petition data
-def legacy_petition_submission(request, petition):
+# handle Salesforce petition data
+def signup_submission(request, signup):
     data = {
-        petition.given_name_form_field: request.data['givenNames'],
-        petition.surname_form_field: request.data['surname'],
-        petition.email_form_field: request.data['email'],
-        petition.newsletter_signup_form_field: 'Yes' if request.data['newsletterSignup'] is True else 'No'
+        "email": request.data['email'],
+        "lang": "en",
+        "format": "html",
+        "source_url": request.data['source'],
+        "newsletters": signup.newsletter,
     }
-
-    if petition.checkbox_1:
-        data[petition.checkbox_1_form_field] = 'Yes' if request.data['checkbox1'] is True else 'No'
-
-    if petition.checkbox_2:
-        data[petition.checkbox_2_form_field] = 'Yes' if request.data['checkbox2'] is True else 'No'
 
     message = json.dumps({
         'app': settings.HEROKU_APP_NAME,
-        'event_type': 'send_post_request',
         'timestamp': datetime.now().isoformat(),
         'data': {
-            'url': petition.google_forms_url,
             'json': True,
-            'form': data
+            'form': data,
+            'event_type': 'newsletter_signup_data'
         }
     })
 
-    return send_to_sqs(gs_sqs, gs_queue_url, message)
+    return send_to_sqs(crm_sqs['client'], crm_queue_url, message, type='signup')
 
 
 # handle Salesforce petition data
@@ -105,10 +120,6 @@ def petition_submission(request, petition):
         "first_name": request.data['givenNames'],
         "last_name": request.data['surname'],
         "email": request.data['email'],
-        # We already submit an email subscription separately
-        # on the client side, so we should check whether
-        # this will cause something to receive a sign-up
-        # thank you email twice, or only once:
         "email_subscription": request.data['newsletterSignup'],
         "source_url": request.data['source'],
     }
@@ -154,19 +165,20 @@ def petition_submission(request, petition):
         }
     })
 
-    return send_to_sqs(crm_sqs, crm_queue_url, message)
+    return send_to_sqs(crm_sqs['client'], crm_queue_url, message, type='petition')
 
 
-def send_to_sqs(sqs, queue_url, message):
+def send_to_sqs(sqs, queue_url, message, type='petition'):
     if settings.DEBUG is True:
-        logger.info('Sending petition message: {}'.format(message))
+        logger.info(f'Sending {type} message: {message}')
 
         if not sqs:
+            # TODO: can this still kick in now that we have an SQS proxy object?
             logger.info('Faking a success message (debug=true, sqs=nonexistent).')
             return Response({'message': 'success (faked)'}, 201)
 
     if queue_url is None:
-        logger.warning('Petition was not submitted: No petition SQS url was specified')
+        logger.warning(f'{type} was not submitted: No {type} SQS url was specified')
         return Response({'message': 'success'}, 201)
 
     try:
@@ -175,9 +187,9 @@ def send_to_sqs(sqs, queue_url, message):
             MessageBody=message
         )
     except Exception as error:
-        logger.error('Failed to send petition with: {}'.format(error))
+        logger.error(f'Failed to send {type} with: {error}')
         return Response(
-            {'error': 'Failed to queue up petition signup'},
+            {'error': f'Failed to queue up {type}'},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
 
@@ -185,6 +197,6 @@ def send_to_sqs(sqs, queue_url, message):
         return Response({'message': 'success'}, 201)
     else:
         return Response(
-            {'error': 'Something went wrong with petition signup'},
+            {'error': f'Something went wrong with {type}'},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )

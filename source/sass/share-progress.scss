@@ -28,17 +28,17 @@
 }
 
 .share-progress-fb {
-  background: #3b5999;
+  background: $fb-blue;
   margin-right: 12px;
 }
 
 .share-progress-tw {
-  background: #1da1f3;
+  background: $twitter-blue;
   margin-right: 12px;
 }
 
 .share-progress-em {
-  background: #9b9b9b;
+  background: $gray-40;
 
   svg {
     margin-right: 5px;

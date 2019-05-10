@@ -10,22 +10,25 @@
 {% block donate %}{% endblock %}
 
 {% block subcontent %}
-<div class="py-4 py-md-5
+<div class="
+  {% block content_wrapper_class %}py-4 py-md-5{% endblock %}
   {% if page.specific.narrowed_page_content %}
-    offset-md-2
-    col-md-8
+    col-lg-8 offset-lg-2
   {% else %}
-    col-md-12
+    col-12
   {% endif %}"
 >
   <div class="row">
       <div class="cms
         {% if page.cta and page.specific.narrowed_page_content == False %}
           col-lg-7
+        {% elif page.signup and page.specific.narrowed_page_content == False %}
+          col-lg-7
         {% else %}
           col-12
         {% endif %}"
       >
+      {% block campaign_page_header %}
         <h1 class="h1-heading {% if uses_menu %}hidden-sm-down{% endif %}">
           {% if uses_menu %}
             {{ mini_site_title }}
@@ -35,7 +38,12 @@
             {{ page.title }}
           {% endif %}
         </h1>
+      {% endblock %}
+      {% block campaign_page_menu %}
+        <div class="mb-4 hidden-sm-down">
         {% mini_site_horizontal_nav page %}
+        </div>
+      {% endblock %}
         {% block html_content %}
           {% for block in page.body %}
             {% if block.block_type == 'heading' %}
@@ -47,6 +55,7 @@
         {% endblock %}
       </div>
 
+      {% block cta %}
       {% if page.cta != None %}
       <div class="cta
         {% if page.specific.narrowed_page_content == False %}
@@ -56,7 +65,7 @@
         {% endif %}"
       >
         <div class="narrow-sticky-button-container hidden">
-          <a href="#cta-anchor" class="narrow-sticky-button btn">TAKE ACTION</a>
+          <a href="#cta-anchor" class="btn btn-primary d-block">TAKE ACTION</a>
         </div>
         <div class="sticky-cta">
           <div id="cta-anchor">
@@ -66,9 +75,19 @@
         <script src="https://c.shpg.org/352/sp.js"></script>
       </div>
       {% endif %}
+      {% endblock %}
+
+      <div class="
+        {% if page.cta and page.specific.narrowed_page_content == False %}
+          col-lg-7
+        {% elif page.signup and page.specific.narrowed_page_content == False %}
+          col-lg-7
+        {% else %}
+          col-12
+        {% endif %}"
+      >
+        {% include "./fragments/ih_cta.html" %}
+      </div>
   </div>
 </div>
 {% endblock %}
-
-
-

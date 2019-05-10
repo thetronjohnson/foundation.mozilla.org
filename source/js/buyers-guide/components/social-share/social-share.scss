@@ -5,9 +5,9 @@
   .pni-s-link {
     $margin-x: 0.5rem;
 
-    border: 1px solid black;
+    border: 1px solid $black;
     border-bottom-width: $btn-shadow-width;
-    color: black;
+    color: $black;
     transition: all 0.1s linear;
     border-radius: 2em;
     white-space: nowrap;
@@ -19,7 +19,7 @@
       flex-wrap: wrap;
       width: calc(50% - #{$margin-x});
 
-      &:nth-child(2n+1) {
+      &:nth-child(2n + 1) {
         margin-right: $margin-x * 2;
       }
     }

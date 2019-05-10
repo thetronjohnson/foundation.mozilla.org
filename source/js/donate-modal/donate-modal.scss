@@ -1,4 +1,4 @@
-@import '../../../node_modules/bootstrap/scss/_variables';
+@import "../../../node_modules/bootstrap/scss/_variables";
 
 .donate-modal {
   position: fixed;
@@ -54,10 +54,10 @@
     &::before,
     &::after {
       position: absolute;
-      content: ' ';
+      content: " ";
       height: $height;
       width: 2px;
-      background-color: white;
+      background-color: $white;
       bottom: 0;
     }
 
@@ -83,7 +83,7 @@
     @include scaleText(16px, 20px);
 
     background: $red;
-    color: white;
+    color: $white;
     padding: 15px 18px;
     border-radius: calc((20px + 18px * 2) / 2); // half of button's height
 
@@ -93,12 +93,12 @@
   }
 
   p,
-  .h3-heading,
+  .h2-heading,
   .h5-heading {
-    color: white;
+    color: $white;
   }
 
-  .h3-heading {
+  .h2-heading {
     @include scaleText(28px, 32px, 34px, 42px);
   }
 

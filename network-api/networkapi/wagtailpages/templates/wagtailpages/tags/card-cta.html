@@ -6,11 +6,11 @@
     <div class="body-large">{{ description | richtext }}</div>
 
     {% if commitment %}
-    <div class="commitment mb-3">{{ commitment }}</div>
+    <div class="h6-heading commitment mb-3">{{ commitment }}</div>
     {% endif %}
 
     {% if link_url %}
-    <a class="btn btn-ghost" href="{{ link_url }}">{{ link_label }}</a>
+    <a class="btn btn-secondary" href="{{ link_url }}">{{ link_label }}</a>
     {% endif %}
 
     <div class="social-links d-flex">

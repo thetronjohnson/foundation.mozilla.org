@@ -1,85 +1,122 @@
-import React from 'react';
-import ReactDOM from 'react-dom';
-import ReactGA from '../react-ga-proxy.js';
+import React from "react";
+import ReactDOM from "react-dom";
+import ReactGA from "../react-ga-proxy.js";
 
-import primaryNav from './components/primary-nav/primary-nav.js';
-import CreepVote from './components/creep-vote/creep-vote.jsx';
-import Creepometer from './components/creepometer/creepometer.jsx';
-import Filter from './components/filter/filter.jsx';
+import primaryNav from "./components/primary-nav/primary-nav.js";
+import CreepVote from "./components/creep-vote/creep-vote.jsx";
+import Creepometer from "./components/creepometer/creepometer.jsx";
+import Filter from "./components/filter/filter.jsx";
+import JoinUs from "../components/join/join.jsx";
 
-import copyToClipboard from './copy-to-clipboard.js';
-import HomepageSlider from './homepage-c-slider.js';
-import ProductGA from './product-analytics.js';
+import copyToClipboard from "./copy-to-clipboard.js";
+import HomepageSlider from "./homepage-c-slider.js";
+import ProductGA from "./product-analytics.js";
 
 // Track all ReactDOM.render calls so we can use a Promise.all()
 // all the way at the end to make sure we don't report "we are done"
 // until all the React stuff is _actually_ done.
 const apps = [];
 
+let env, networkSiteURL, csrfToken;
+
 let main = {
   init() {
-    ReactGA.initialize(`UA-87658599-6`);
-    ReactGA.pageview(window.location.pathname);
+    this.fetchEnv(envData => {
+      env = envData;
+      networkSiteURL = env.NETWORK_SITE_URL;
 
-    this.enableCopyLinks();
-    this.injectReactComponents();
+      csrfToken = document.querySelector('meta[name="csrf-token"]');
+      csrfToken = csrfToken ? csrfToken.getAttribute("content") : false;
 
-    primaryNav.init();
-
-    if (document.getElementById(`pni-home`)) {
-      HomepageSlider.init();
-
-      let filter = document.querySelector(`#product-filter`);
-
-      if (filter) {
-        apps.push(new Promise(resolve => {
-          ReactDOM.render(<Filter whenLoaded={() => resolve()}/>, filter);
-        }));
+      // HEROKU_APP_DOMAIN is used by review apps
+      if (!networkSiteURL && env.HEROKU_APP_NAME) {
+        networkSiteURL = `https://${env.HEROKU_APP_NAME}.herokuapp.com`;
       }
-    }
 
-    if (document.getElementById(`pni-product-page`)) {
-      ProductGA.init();
+      ReactGA.initialize(`UA-87658599-6`);
+      ReactGA.pageview(window.location.pathname);
 
-      // Set up help text accordions where necessary:
-      let productBox = document.querySelector(`.product-detail .h1-heading`);
-      let productName = productBox ? productBox.textContent : `unknown product`;
-      let criteriaWithHelp = document.querySelectorAll(`.criterion button.toggle`);
+      this.enableCopyLinks();
+      this.injectReactComponents();
 
-      if (criteriaWithHelp.length > 0) {
-        Array.from(criteriaWithHelp).forEach(button => {
-          let help = button.closest(`.criterion`).querySelector(`.helptext`);
+      primaryNav.init();
 
-          button.addEventListener(`click`, () => {
-            button.classList.toggle(`open`);
-            help.classList.toggle(`open`);
+      if (document.getElementById(`pni-home`)) {
+        HomepageSlider.init();
 
-            if (help.classList.contains(`open`)) {
-              ReactGA.event({
-                category: `product`,
-                action: `expand accordion tap`,
-                label: `detail view on ${productName}`
-              });
-            }
+        let filter = document.querySelector(`#product-filter`);
+
+        if (filter) {
+          apps.push(
+            new Promise(resolve => {
+              ReactDOM.render(<Filter whenLoaded={() => resolve()} />, filter);
+            })
+          );
+        }
+      }
+
+      if (document.getElementById(`pni-product-page`)) {
+        ProductGA.init();
+
+        // Set up help text accordions where necessary:
+        let productBox = document.querySelector(`.product-detail .h1-heading`);
+        let productName = productBox
+          ? productBox.textContent
+          : `unknown product`;
+        let criteriaWithHelp = document.querySelectorAll(
+          `.criterion button.toggle`
+        );
+
+        if (criteriaWithHelp.length > 0) {
+          Array.from(criteriaWithHelp).forEach(button => {
+            let help = button.closest(`.criterion`).querySelector(`.helptext`);
+
+            button.addEventListener(`click`, () => {
+              button.classList.toggle(`open`);
+              help.classList.toggle(`open`);
+
+              if (help.classList.contains(`open`)) {
+                ReactGA.event({
+                  category: `product`,
+                  action: `expand accordion tap`,
+                  label: `detail view on ${productName}`
+                });
+              }
+            });
           });
-        });
+        }
       }
-    }
 
-    // Record that we're done, when we're really done.
-    Promise.all(apps).then(() => {
-      window[`bg-main-js:react:finished`] = true;
+      // Record that we're done, when we're really done.
+      Promise.all(apps).then(() => {
+        window[`bg-main-js:react:finished`] = true;
+      });
     });
+  },
+
+  fetchEnv(callback) {
+    let envReq = new XMLHttpRequest();
+
+    envReq.addEventListener(`load`, () => {
+      callback.call(this, JSON.parse(envReq.response));
+    });
+
+    envReq.open(`GET`, `/environment.json`);
+    envReq.send();
   },
 
   enableCopyLinks() {
     if (document.querySelectorAll(`.copy-link`)) {
       Array.from(document.querySelectorAll(`.copy-link`)).forEach(element => {
-        element.addEventListener(`click`, (event) => {
+        element.addEventListener(`click`, event => {
           event.preventDefault();
 
-          let productBox = document.querySelector(`.product-detail .h1-heading`);
-          let productTitle = productBox ? productBox.textContent : `unknown product`;
+          let productBox = document.querySelector(
+            `.product-detail .h1-heading`
+          );
+          let productTitle = productBox
+            ? productBox.textContent
+            : `unknown product`;
 
           ReactGA.event({
             category: `product`,
@@ -105,20 +142,31 @@ let main = {
         let votes = element.querySelector(`input[name=votes]`).value;
 
         try {
-          votes = JSON.parse(votes.replace(/'/g,`"`));
+          votes = JSON.parse(votes.replace(/'/g, `"`));
         } catch (e) {
           votes = {
             creepiness: {
               average: 50,
-              'vote_breakdown': {'0': 0, '1': 0, '2': 0, '3': 0, '4': 0}
+              vote_breakdown: { "0": 0, "1": 0, "2": 0, "3": 0, "4": 0 }
             },
-            confidence: {'0': 0, '1': 0}
+            confidence: { "0": 0, "1": 0 }
           };
         }
 
-        apps.push(new Promise(resolve => {
-          ReactDOM.render(<CreepVote csrf={csrf.value} productName={productName} productID={parseInt(productID,10)} votes={votes} whenLoaded={() => resolve()}/>, element);
-        }));
+        apps.push(
+          new Promise(resolve => {
+            ReactDOM.render(
+              <CreepVote
+                csrf={csrf.value}
+                productName={productName}
+                productID={parseInt(productID, 10)}
+                votes={votes}
+                whenLoaded={() => resolve()}
+              />,
+              element
+            );
+          })
+        );
       });
     }
 
@@ -128,9 +176,17 @@ let main = {
       Array.from(creepometerTargets).forEach(element => {
         let initialValue = element.dataset.initialValue;
 
-        apps.push(new Promise(resolve => {
-          ReactDOM.render(<Creepometer initialValue={initialValue} whenLoaded={() => resolve()}/>, element);
-        }));
+        apps.push(
+          new Promise(resolve => {
+            ReactDOM.render(
+              <Creepometer
+                initialValue={initialValue}
+                whenLoaded={() => resolve()}
+              />,
+              element
+            );
+          })
+        );
       });
     }
 
@@ -167,6 +223,31 @@ let main = {
         injectDonateModal(donationModal, modalOptions);
       }
     */
+
+    if (document.querySelectorAll(`.join-us`)) {
+      var elements = Array.from(document.querySelectorAll(`.join-us`));
+
+      if (elements.length) {
+        elements.forEach(element => {
+          var props = element.dataset;
+
+          props.apiUrl = `${networkSiteURL}/api/campaign/signups/${props.signupId ||
+            0}/`;
+
+          props.csrfToken = props.csrfToken || csrfToken;
+          props.isHidden = false;
+
+          apps.push(
+            new Promise(resolve => {
+              ReactDOM.render(
+                <JoinUs {...props} whenLoaded={() => resolve()} />,
+                element
+              );
+            })
+          );
+        });
+      }
+    }
   }
 };
 

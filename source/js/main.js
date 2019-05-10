@@ -1,25 +1,23 @@
 /* eslint no-unused-vars: ["error", { "varsIgnorePattern": "React" }] */
 
-import React from 'react';
-import ReactGA from 'react-ga';
-import ReactDOM from 'react-dom';
-import Analytics from './analytics.js';
+import React from "react";
+import ReactGA from "react-ga";
+import ReactDOM from "react-dom";
+import Analytics from "./analytics.js";
 
-import JoinUs from './components/join/join.jsx';
-import Petition from './components/petition/petition.jsx';
-import People from './components/people/people.jsx';
-import MemberNotice from './components/member-notice/member-notice.jsx';
-import MultipageNavMobile from './components/multipage-nav-mobile/multipage-nav-mobile.jsx';
-import News from './components/news/news.jsx';
-import SingleFilterFellowList from './components/fellow-list/single-filter-fellow-list.jsx';
-import PulseProjectList from './components/pulse-project-list/pulse-project-list.jsx';
+import JoinUs from "./components/join/join.jsx";
+import Petition from "./components/petition/petition.jsx";
+import MemberNotice from "./components/member-notice/member-notice.jsx";
+import MultipageNavMobile from "./components/multipage-nav-mobile/multipage-nav-mobile.jsx";
+import News from "./components/news/news.jsx";
+import PulseProjectList from "./components/pulse-project-list/pulse-project-list.jsx";
 
-import primaryNav from './primary-nav.js';
+import primaryNav from "./primary-nav.js";
 
 const SHOW_MEMBER_NOTICE = false;
 
-// To be populated via XHR...
-let env, networkSiteURL;
+// To be populated via XHR and querySelector
+let env, networkSiteURL, csrfToken;
 
 // Track all ReactDOM.render calls so we can use a Promise.all()
 // all the way at the end to make sure we don't report "we are done"
@@ -28,20 +26,23 @@ const apps = [];
 
 let main = {
   init() {
-    this.fetchEnv((envData) => {
+    this.fetchEnv(envData => {
       env = envData;
       networkSiteURL = env.NETWORK_SITE_URL;
+
+      csrfToken = document.querySelector('meta[name="csrf-token"]');
+      csrfToken = csrfToken ? csrfToken.getAttribute("content") : false;
 
       // HEROKU_APP_DOMAIN is used by review apps
       if (!networkSiteURL && env.HEROKU_APP_NAME) {
         networkSiteURL = `https://${env.HEROKU_APP_NAME}.herokuapp.com`;
       }
 
+      Analytics.initialize();
+
       this.injectReactComponents();
       this.bindGlobalHandlers();
       this.decorateExternalLinks();
-
-      Analytics.initialize();
       this.bindGAEventTrackers();
 
       // Record that we're done, when we're really done.
@@ -52,11 +53,16 @@ let main = {
   },
 
   decorateExternalLinks() {
-    Array.from( document.querySelectorAll(`a`) ).forEach((link) => {
+    Array.from(document.querySelectorAll(`a`)).forEach(link => {
       let href = link.getAttribute(`href`);
+      let targetDomains = env.TARGET_DOMAINS;
 
       // Define an external link as any URL with `//` in it
-      if (href && href.match(/\/\//) && !href.match(`//${env.TARGET_DOMAIN}`)) {
+      if (
+        href &&
+        href.match(/\/\//) &&
+        targetDomains.some(domain => !href.match(`//${domain}`))
+      ) {
         link.setAttribute(`target`, `_blank`);
 
         // https://www.jitbit.com/alexblog/256-targetblank---the-most-underestimated-vulnerability-ever/
@@ -99,7 +105,7 @@ let main = {
     let ticking = false;
     let elBurgerWrapper = document.querySelector(`.wrapper-burger`);
 
-    let adjustNavbar = (scrollPosition) => {
+    let adjustNavbar = scrollPosition => {
       if (scrollPosition > 0) {
         elBurgerWrapper.classList.add(`scrolled`);
       } else {
@@ -107,15 +113,20 @@ let main = {
       }
     };
 
-
     let elCtaAnchor = document.querySelector(`#cta-anchor`);
-    let elStickyButton = document.querySelector(`.narrow-sticky-button-container`);
+    let elStickyButton = document.querySelector(
+      `.narrow-sticky-button-container`
+    );
     let noopCtaButton = () => {};
     let adjustCtaButton = noopCtaButton;
 
     if (elCtaAnchor && elStickyButton) {
       let getAnchorPosition = () => {
-        return elCtaAnchor.getBoundingClientRect().top + window.scrollY - window.innerHeight;
+        return (
+          elCtaAnchor.getBoundingClientRect().top +
+          window.scrollY -
+          window.innerHeight
+        );
       };
 
       let ctaAnchorPosition = getAnchorPosition();
@@ -124,14 +135,14 @@ let main = {
         ctaAnchorPosition = getAnchorPosition();
       });
 
-      let scrollCtaButton = (scrollPosition) => {
+      let scrollCtaButton = scrollPosition => {
         if (scrollPosition > ctaAnchorPosition) {
           elStickyButton.classList.add(`hidden`);
           adjustCtaButton = noopCtaButton;
         }
       };
 
-      let initCtaButton = (scrollPosition) => {
+      let initCtaButton = scrollPosition => {
         if (scrollPosition <= ctaAnchorPosition) {
           elStickyButton.classList.remove(`hidden`);
           adjustCtaButton = scrollCtaButton;
@@ -164,21 +175,25 @@ let main = {
 
     // Extra tracking
 
-    document.getElementById(`donate-header-btn`).addEventListener(`click`, () => {
-      ReactGA.event({
-        category: `donate`,
-        action: `donate button tap`,
-        label: `${document.title} header`
+    document
+      .getElementById(`donate-header-btn`)
+      .addEventListener(`click`, () => {
+        ReactGA.event({
+          category: `donate`,
+          action: `donate button tap`,
+          label: `${document.title} header`
+        });
       });
-    });
 
-    document.getElementById(`donate-footer-btn`).addEventListener(`click`, () => {
-      ReactGA.event({
-        category: `donate`,
-        action: `donate button tap`,
-        label: `${document.title} footer`
+    document
+      .getElementById(`donate-footer-btn`)
+      .addEventListener(`click`, () => {
+        ReactGA.event({
+          category: `donate`,
+          action: `donate button tap`,
+          label: `${document.title} footer`
+        });
       });
-    });
   },
 
   bindGAEventTrackers() {
@@ -197,7 +212,9 @@ let main = {
       });
     }
 
-    let participateDonateBtn = document.querySelector(`#view-participate .card-cta .btn[href*="donate.mozilla.org"]`);
+    let participateDonateBtn = document.querySelector(
+      `#view-participate .card-cta .btn[href*="donate.mozilla.org"]`
+    );
 
     if (participateDonateBtn) {
       participateDonateBtn.addEventListener(`click`, () => {
@@ -213,28 +230,46 @@ let main = {
   // Embed various React components based on the existence of containers within the current page
   injectReactComponents() {
     if (SHOW_MEMBER_NOTICE && document.getElementById(`member-notice`)) {
-      apps.push(new Promise(resolve => {
-        ReactDOM.render(<MemberNotice whenLoaded={() => resolve()}/>, document.getElementById(`member-notice`));
-      }));
+      apps.push(
+        new Promise(resolve => {
+          ReactDOM.render(
+            <MemberNotice whenLoaded={() => resolve()} />,
+            document.getElementById(`member-notice`)
+          );
+        })
+      );
     }
 
     // Embed additional instances of the Join Us box that don't need an API exposed (eg: Homepage)
-    if (document.querySelectorAll(`.join-us:not(#join-us)`)) {
-      var elements = Array.from(document.querySelectorAll(`.join-us:not(#join-us)`));
+    if (document.querySelectorAll(`.join-us`)) {
+      var elements = Array.from(document.querySelectorAll(`.join-us`));
 
       if (elements.length) {
         elements.forEach(element => {
           var props = element.dataset;
 
-          apps.push(new Promise(resolve => {
-            ReactDOM.render(<JoinUs {...props} isHidden={false} whenLoaded={() => resolve()} />, element);
-          }));
+          props.apiUrl = `${networkSiteURL}/api/campaign/signups/${props.signupId ||
+            0}/`;
+
+          props.csrfToken = props.csrfToken || csrfToken;
+          props.isHidden = false;
+
+          apps.push(
+            new Promise(resolve => {
+              ReactDOM.render(
+                <JoinUs {...props} whenLoaded={() => resolve()} />,
+                element
+              );
+            })
+          );
         });
       }
     }
 
     // petition elements
-    var petitionElements = Array.from(document.querySelectorAll(`.sign-petition`));
+    var petitionElements = Array.from(
+      document.querySelectorAll(`.sign-petition`)
+    );
     var subscribed = false;
 
     if (window.location.search.indexOf(`subscribed=1`) !== -1) {
@@ -244,61 +279,63 @@ let main = {
     petitionElements.forEach(element => {
       var props = element.dataset;
 
-      props.apiUrl = `${networkSiteURL}/api/campaign/petitions/${props.petitionId}/`;
+      props.apiUrl = `${networkSiteURL}/api/campaign/petitions/${
+        props.petitionId
+      }/`;
 
-      apps.push(new Promise(resolve => {
-        ReactDOM.render(<Petition {...props} isHidden={false} subscribed={subscribed} whenLoaded={() => resolve()}/>, element);
-      }));
+      apps.push(
+        new Promise(resolve => {
+          ReactDOM.render(
+            <Petition
+              {...props}
+              isHidden={false}
+              subscribed={subscribed}
+              whenLoaded={() => resolve()}
+            />,
+            element
+          );
+        })
+      );
     });
-
-    if (document.getElementById(`people`)) {
-      apps.push(new Promise(resolve => {
-        ReactDOM.render(<People env={env} whenLoaded={() => resolve()} />, document.getElementById(`people`));
-      }));
-    }
 
     // Multipage nav used in landing pages
     if (document.querySelector(`#multipage-nav`)) {
       let links = [];
 
-      links = [].map.call(document.querySelectorAll(`#multipage-nav a`), (child) => {
-        return {
-          label: child.textContent.trim(),
-          href: child.getAttribute(`href`),
-          isActive: !!child.getAttribute(`class`).match(/active/)
-        };
-      });
+      links = [].map.call(
+        document.querySelectorAll(`#multipage-nav a`),
+        child => {
+          return {
+            label: child.textContent.trim(),
+            href: child.getAttribute(`href`),
+            isActive: !!child.getAttribute(`class`).match(/active/)
+          };
+        }
+      );
 
-      apps.push(new Promise(resolve => {
-        ReactDOM.render(<MultipageNavMobile links={links} whenLoaded={() => resolve()} />, document.querySelector(`#multipage-nav-mobile .container .row .col-12`));
-      }));
+      apps.push(
+        new Promise(resolve => {
+          ReactDOM.render(
+            <MultipageNavMobile links={links} whenLoaded={() => resolve()} />,
+            document.querySelector(
+              `#multipage-nav-mobile .container .row .col-12`
+            )
+          );
+        })
+      );
     }
 
     // News
     if (document.querySelector(`#news`)) {
-      apps.push(new Promise(resolve => {
-        ReactDOM.render(<News env={env} whenLoaded={() => resolve()} />, document.querySelector(`#news`));
-      }));
+      apps.push(
+        new Promise(resolve => {
+          ReactDOM.render(
+            <News env={env} whenLoaded={() => resolve()} />,
+            document.querySelector(`#news`)
+          );
+        })
+      );
     }
-
-    // Fellowships single filter fellow list
-    let singleFilterFellowList = Array.from(
-      document.querySelectorAll(`.single-filter-fellow-list`)
-    );
-
-    singleFilterFellowList.forEach(target => {
-      apps.push(new Promise(resolve => {
-        ReactDOM.render(
-          <SingleFilterFellowList
-            env={env}
-            filterType={target.dataset.filterType}
-            filterOptions={target.dataset.filterOptions.split(`,`)}
-            selectedOption={target.dataset.selectedOption}
-            whenLoaded={() => resolve()}
-          />, target
-        );
-      }));
-    });
 
     // Pulse project lists
     let pulseProjectList = Array.from(
@@ -306,20 +343,117 @@ let main = {
     );
 
     pulseProjectList.forEach(target => {
-      apps.push(new Promise(resolve => {
-        ReactDOM.render(
-          <PulseProjectList
-            env={ env }
-            featured={ target.dataset.featured === `True` }
-            help={ target.dataset.help }
-            issues={ target.dataset.issues }
-            max={ parseInt(target.dataset.max, 10) }
-            query={ target.dataset.query || `` }
-            reverseChronological={ target.dataset.reversed === `True` }
-            whenLoaded={() => resolve()}
-          />, target
+      apps.push(
+        new Promise(resolve => {
+          ReactDOM.render(
+            <PulseProjectList
+              env={env}
+              featured={target.dataset.featured === `True`}
+              help={target.dataset.help}
+              issues={target.dataset.issues}
+              max={parseInt(target.dataset.max, 10)}
+              query={target.dataset.query || ``}
+              reverseChronological={target.dataset.reversed === `True`}
+              whenLoaded={() => resolve()}
+              directLink={target.dataset.directLink === `True`}
+            />,
+            target
+          );
+        })
+      );
+    });
+
+    //Profile Directory Filter-Bar GA
+
+    const filters = document.querySelectorAll(
+      `.profile-directory .fellowships-directory-filter .filter-option button`
+    );
+
+    filters.forEach(filter => {
+      let year = filter.textContent.trim();
+      filter.addEventListener("click", () => {
+        ReactGA.event({
+          category: `profiles`,
+          action: `directory filter"`,
+          label: `${document.title} ${year}`
+        });
+      });
+    });
+
+    //Profile Directory Cards Social Media GA
+
+    function profileCardSocialAnalytics(
+      socialTwitter,
+      socialLinkedIn,
+      profileName
+    ) {
+      if (socialTwitter) {
+        socialTwitter.addEventListener(`click`, () => {
+          ReactGA.event({
+            category: `profiles`,
+            action: `profile tap`,
+            label: `${document.title} ${profileName} twitter`,
+            transport: `beacon`
+          });
+        });
+      }
+
+      if (socialLinkedIn) {
+        socialLinkedIn.addEventListener(`click`, () => {
+          ReactGA.event({
+            category: `profiles`,
+            action: `profile tap`,
+            label: `${document.title} ${profileName} linkedin`,
+            transport: `beacon`
+          });
+        });
+      }
+    }
+
+    //Profile Directory Card Headshot/Name GA
+
+    function bindProfileCardAnalytics(profileCards) {
+      // event listener & GA
+      let bindAnalytics = (element, profileName) => {
+        element.addEventListener(`click`, () => {
+          ReactGA.event({
+            category: `profiles`,
+            action: `profile tap`,
+            label: `${document.title} ${profileName} pulse profile`,
+            transport: `beacon`
+          });
+        });
+      };
+
+      // adding event listener for each headshot & name
+      profileCards.forEach(card => {
+        let profileHeadshotElement = card.querySelector(`.headshot-container`);
+        let profileNameElement = card.querySelector(`.meta-block-name`);
+        let profileName = profileNameElement.textContent.trim();
+
+        [(profileNameElement, profileHeadshotElement)].forEach(target =>
+          bindAnalytics(target, profileName)
         );
-      }));
+
+        let socialTwitter = card.querySelector(`.twitter`);
+        let socialLinkedIn = card.querySelector(`.linkedIn`);
+        profileCardSocialAnalytics(socialTwitter, socialLinkedIn, profileName);
+      });
+    }
+
+    // store profile cards
+    let profileCards = document.querySelectorAll(`.profiles .person-card`);
+
+    // checks for profile cards in the initial page load
+    if (profileCards.length > 0) {
+      bindProfileCardAnalytics(profileCards);
+    }
+    // And start listening for profile filter events,
+    // in case profile cards get updated.
+    document.addEventListener(`profiles:list-updated`, () => {
+      // Refetch the profile cards, because they'll have gone stale.
+      profileCards = document.querySelectorAll(`.profiles .person-card`);
+      bindProfileCardAnalytics(profileCards);
     });
 
     /*

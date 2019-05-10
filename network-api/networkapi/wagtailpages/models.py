@@ -15,6 +15,8 @@ from wagtail.images.edit_handlers import ImageChooserPanel
 from wagtail.core.models import Orderable as WagtailOrderable
 from wagtail.images.models import Image
 from modelcluster.fields import ParentalKey
+from modelcluster.contrib.taggit import ClusterTaggableManager
+from taggit.models import TaggedItemBase
 from wagtail.admin.edit_handlers import InlinePanel
 from wagtailmetadata.models import MetadataPageMixin
 
@@ -29,7 +31,6 @@ which are bits that should be used in subclassing template-based
 page types.
 """
 base_fields = [field for field in [
-    ('heading', blocks.CharBlock()),
     ('paragraph', blocks.RichTextBlock(
         features=[
             'bold', 'italic',
@@ -40,11 +41,8 @@ base_fields = [field for field in [
     )),
     ('image', customblocks.AnnotatedImageBlock()),
     ('image_text', customblocks.ImageTextBlock()),
-    ('image_text2', customblocks.ImageTextBlock2()),
     ('image_text_mini', customblocks.ImageTextMini()),
-    ('figure', customblocks.FigureBlock()),
-    ('figuregrid', customblocks.FigureGridBlock()),
-    ('figuregrid2', customblocks.FigureGridBlock2()),
+    ('image_grid', customblocks.ImageGridBlock()),
     ('video', customblocks.VideoBlock()),
     ('iframe', customblocks.iFrameBlock()),
     ('linkbutton', customblocks.LinkButtonBlock()),
@@ -53,7 +51,7 @@ base_fields = [field for field in [
     ('pulse_listing', customblocks.PulseProjectList()),
     ('profile_listing', customblocks.LatestProfileList()),
     ('profile_by_id', customblocks.ProfileById()),
-    ('profile_directory', customblocks.ProfileDirectory()) if settings.ENABLE_PROFILE_DIRECTORY_BLOCK else None,
+    ('profile_directory', customblocks.ProfileDirectory()),
     ('airtable', customblocks.AirTableBlock()),
 ] if field is not None]
 
@@ -146,22 +144,15 @@ class ModularPage(FoundationMetadataPageMixin, Page):
         StreamFieldPanel('body'),
     ]
 
-    # Legacy field for now, necessary to make sure that the
-    # actualy <title> element has the correct value in it.
-    # This uses page.meta_title in the base.html
-    # master template, which is still based on Mezzanine
-    # page models, rather than Wagtail pages models.
-    @property
-    def meta_title(self):
-        return self.title
-
     show_in_menus_default = True
 
 
 class MiniSiteNameSpace(ModularPage):
     subpage_types = [
+        'BanneredCampaignPage',
         'CampaignPage',
         'OpportunityPage',
+        'BlogPage',
     ]
 
     """
@@ -219,21 +210,9 @@ class Signup(CTA):
 
 
 class OpportunityPage(MiniSiteNameSpace):
-    """
-    these pages come with sign-up-for-xyz CTAs
-    """
-    cta = models.ForeignKey(
-        'Signup',
-        related_name='page',
-        blank=True,
-        null=True,
-        on_delete=models.SET_NULL,
-        help_text='Choose existing or create new petition form'
-    )
 
     content_panels = Page.content_panels + [
         FieldPanel('header'),
-        SnippetChooserPanel('cta'),
         StreamFieldPanel('body'),
     ]
 
@@ -436,6 +415,16 @@ class PrimaryPage(FoundationMetadataPageMixin, Page):
         blank=True
     )
 
+    banner = models.ForeignKey(
+        'wagtailimages.Image',
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='primary_banner',
+        verbose_name='Hero Image',
+        help_text='Choose an image that\'s bigger than 4032px x 1152px with aspect ratio 3.5:1',
+    )
+
     intro = models.CharField(
         max_length=250,
         blank=True,
@@ -465,13 +454,9 @@ class PrimaryPage(FoundationMetadataPageMixin, Page):
 
     content_panels = Page.content_panels + [
         FieldPanel('header'),
+        ImageChooserPanel('banner'),
         FieldPanel('intro'),
         StreamFieldPanel('body'),
-    ]
-
-    parent_page_types = [
-        'Homepage',
-        'PrimaryPage',
     ]
 
     subpage_types = [
@@ -486,9 +471,103 @@ class PrimaryPage(FoundationMetadataPageMixin, Page):
         return get_page_tree_information(self, context)
 
 
+class BanneredCampaignPage(PrimaryPage):
+    """
+    title, header, intro, and body are inherited from PrimaryPage
+    """
+
+    # Note that this is a different related_name, as the `page`
+    # name is already taken as back-referenced to CampaignPage.
+    cta = models.ForeignKey(
+        'Petition',
+        related_name='bcpage',
+        blank=True,
+        null=True,
+        on_delete=models.SET_NULL,
+        help_text='Choose an existing, or create a new, pettition form'
+    )
+
+    signup = models.ForeignKey(
+        'Signup',
+        related_name='bcpage',
+        blank=True,
+        null=True,
+        on_delete=models.SET_NULL,
+        help_text='Choose an existing, or create a new, sign-up form'
+    )
+
+    panel_count = len(PrimaryPage.content_panels)
+    n = panel_count - 1
+
+    content_panels = PrimaryPage.content_panels[:n] + [
+        SnippetChooserPanel('cta'),
+        SnippetChooserPanel('signup'),
+    ] + PrimaryPage.content_panels[n:]
+
+    subpage_types = [
+        'BanneredCampaignPage',
+    ]
+
+    show_in_menus_default = True
+
+    def get_context(self, request):
+        context = super(BanneredCampaignPage, self).get_context(request)
+        return get_page_tree_information(self, context)
+
+
 class NewsPage(PrimaryPage):
     parent_page_types = ['Homepage']
     template = 'wagtailpages/static/news_page.html'
+
+
+class BlogPageTag(TaggedItemBase):
+    content_object = ParentalKey('wagtailpages.BlogPage', on_delete=models.CASCADE, related_name='tagged_items')
+
+
+class BlogPage(FoundationMetadataPageMixin, Page):
+    template = 'wagtailpages/blog_page.html'
+
+    author = models.CharField(
+        verbose_name='Author',
+        max_length=50,
+        blank=False,
+    )
+
+    body = StreamField([
+        ('paragraph', blocks.RichTextBlock(
+            features=[
+                'bold', 'italic',
+                'h2', 'h3', 'h4', 'h5',
+                'ol', 'ul',
+                'link', 'hr',
+            ]
+        )),
+        ('image', customblocks.AnnotatedImageBlock()),
+        ('image_text', customblocks.ImageTextBlock()),
+        ('image_text_mini', customblocks.ImageTextMini()),
+        ('video', customblocks.VideoBlock()),
+        ('linkbutton', customblocks.LinkButtonBlock()),
+        ('spacer', customblocks.BootstrapSpacerBlock()),
+        ('quote', customblocks.QuoteBlock()),
+    ])
+
+    # Editor panels configuration
+
+    content_panels = Page.content_panels + [
+        FieldPanel('author'),
+        StreamFieldPanel('body'),
+    ]
+
+    # Promote panels configuration
+    tags = ClusterTaggableManager(through=BlogPageTag, blank=True)
+
+    promote_panels = Page.promote_panels + [
+        FieldPanel('tags'),
+    ]
+
+    # Database fields
+
+    zen_nav = True
 
 
 class InitiativeSection(models.Model):
@@ -551,9 +630,10 @@ class InitiativesPage(PrimaryPage):
     template = 'wagtailpages/static/initiatives_page.html'
 
     subpage_types = [
+        'BanneredCampaignPage',
         'MiniSiteNameSpace',
-        'RedirectingPage',
         'OpportunityPage',
+        'RedirectingPage',
     ]
 
     primaryHero = models.ForeignKey(
@@ -754,7 +834,6 @@ class ParticipatePage2(PrimaryPage):
 
 class PeoplePage(PrimaryPage):
     parent_page_types = ['Homepage']
-    template = 'wagtailpages/static/people_page.html'
 
 
 class Styleguide(PrimaryPage):
@@ -770,7 +849,7 @@ class HomepageFeaturedNews(WagtailOrderable, models.Model):
         'wagtailpages.Homepage',
         related_name='featured_news',
     )
-    news = models.ForeignKey('news.News', related_name='+')
+    news = models.ForeignKey('news.News', on_delete=models.CASCADE, related_name='+')
     panels = [
         SnippetChooserPanel('news'),
     ]
@@ -789,7 +868,7 @@ class HomepageFeaturedHighlights(WagtailOrderable, models.Model):
         'wagtailpages.Homepage',
         related_name='featured_highlights',
     )
-    highlight = models.ForeignKey('highlights.Highlight', related_name='+')
+    highlight = models.ForeignKey('highlights.Highlight', on_delete=models.CASCADE, related_name='+')
     panels = [
         SnippetChooserPanel('highlight'),
     ]
@@ -808,7 +887,7 @@ class InitiativesHighlights(WagtailOrderable, models.Model):
         'wagtailpages.InitiativesPage',
         related_name='featured_highlights',
     )
-    highlight = models.ForeignKey('highlights.Highlight', related_name='+')
+    highlight = models.ForeignKey('highlights.Highlight', on_delete=models.CASCADE, related_name='+')
     panels = [
         SnippetChooserPanel('highlight'),
     ]
@@ -891,7 +970,7 @@ class ParticipateHighlightsBase(WagtailOrderable, models.Model):
         'wagtailpages.ParticipatePage2',
         related_name='featured_highlights',
     )
-    highlight = models.ForeignKey('highlights.Highlight', related_name='+')
+    highlight = models.ForeignKey('highlights.Highlight', on_delete=models.CASCADE, related_name='+')
     commitment = models.CharField(
         blank=True,
         max_length=256,
@@ -984,6 +1063,7 @@ class Homepage(FoundationMetadataPageMixin, Page):
         'MiniSiteNameSpace',
         'RedirectingPage',
         'OpportunityPage',
+        'BanneredCampaignPage',
     ]
 
     def get_context(self, request):

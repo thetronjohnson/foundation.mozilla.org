@@ -19,9 +19,9 @@ $btn-shadow-width: 3px;
     button[type="submit"] {
       @extend .btn.disabled; // we want it to have Bootstrap's .btn.disabled stylings
 
-      color: #bbbbbb;
+      color: $gray-20;
 
-      &.btn-ghost:hover {
+      &.btn-secondary:hover {
         cursor: auto;
         color: inherit;
         background: inherit;
@@ -83,15 +83,17 @@ $btn-shadow-width: 3px;
     }
 
     .btn {
-      border: 1px solid black;
+      border: 1px solid $black;
       border-bottom-width: $btn-shadow-width;
-      color: black;
+      color: $black;
       text-transform: initial;
       transition: all 0.1s linear;
       width: 100%;
     }
 
-    input { display: none; }
+    input {
+      display: none;
+    }
 
     label:first-of-type span {
       border-radius: $radio-button-radius 0 0 $radio-button-radius;

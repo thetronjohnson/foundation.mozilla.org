@@ -18,10 +18,10 @@ class LinkButtonBlock(blocks.StructBlock):
     # should be used.
     styling = blocks.ChoiceBlock(
         choices=[
-            ('btn-normal', 'Normal button'),
-            ('btn-ghost', 'Ghost button'),
+            ('btn-primary', 'Primary button'),
+            ('btn-secondary', 'Secondary button'),
         ],
-        default='btn-normal',
+        default='btn-primary',
     )
 
     class Meta:
@@ -88,41 +88,36 @@ class AlignedImageBlock(ImageBlock):
         template = 'wagtailpages/blocks/aligned_image_block.html'
 
 
-class ImageTextBlock(blocks.StructBlock):
+class ImageTextBlock(ImageBlock):
     text = blocks.RichTextBlock(
-        features=['bold', 'italic', 'link', ]
-    )
-    image = ImageBlock()
-    ordering = blocks.ChoiceBlock(
-        choices=[
-            ('left', 'Image on the left'),
-            ('right', 'Image on the right'),
-        ],
-        default='left',
-    )
-
-    class Meta:
-        icon = 'doc-full'
-        template = 'wagtailpages/blocks/image_text_block.html'
-        group = 'Deprecated'
-
-
-class ImageTextBlock2(ImageBlock):
-    text = blocks.RichTextBlock(
-        features=['link', 'h2', 'h3', 'h4', 'h5', 'h6']
+        features=['bold', 'italic', 'h2', 'h3', 'h4', 'h5', 'h6', 'ol', 'ul', 'link']
     )
     url = blocks.CharBlock(
         required=False,
         help_text='Optional URL that this image should link out to.',
     )
-    small = blocks.BooleanBlock(
+    top_divider = blocks.BooleanBlock(
         required=False,
-        help_text='Use smaller, fixed image size (eg: icon)',
+        help_text='Optional divider above content block.',
     )
+    bottom_divider = blocks.BooleanBlock(
+        required=False,
+        help_text='Optional divider below content block.',
+    )
+
+    def get_context(self, value, parent_context=None):
+        context = super().get_context(value, parent_context=parent_context)
+        divider_styles = []
+        if value.get("top_divider"):
+            divider_styles.append('div-top')
+        if value.get("bottom_divider"):
+            divider_styles.append('div-bottom')
+        context['divider_styles'] = ' '.join(divider_styles)
+        return context
 
     class Meta:
         icon = 'doc-full'
-        template = 'wagtailpages/blocks/image_text_block2.html'
+        template = 'wagtailpages/blocks/image_text.html'
 
 
 class ImageTextMini(ImageBlock):
@@ -135,23 +130,6 @@ class ImageTextMini(ImageBlock):
         template = 'wagtailpages/blocks/image_text_mini.html'
 
 
-class FigureBlock(blocks.StructBlock):
-    figure = AlignedImageBlock()
-    caption = blocks.CharBlock(
-        required=False,
-        help_text='Please remember to properly attribute any images we use.'
-    )
-    url = blocks.CharBlock(
-        required=False,
-        help_text='Optional URL that this figure should link out to.',
-    )
-
-    class Meta:
-        icon = 'picture'
-        template = 'wagtailpages/blocks/figure_block.html'
-        group = 'Deprecated'
-
-
 class FigureBlock2(blocks.StructBlock):
     image = ImageChooserBlock()
     caption = blocks.CharBlock(
@@ -162,25 +140,37 @@ class FigureBlock2(blocks.StructBlock):
         required=False,
         help_text='Optional URL that this figure should link out to.',
     )
+    square_image = blocks.BooleanBlock(
+        default=True,
+        required=False,
+        help_text='If left checked, the image will be cropped to be square.'
+    )
 
 
-class FigureGridBlock(blocks.StructBlock):
-    grid_items = blocks.ListBlock(FigureBlock())
+class ImageGrid(blocks.StructBlock):
+    image = ImageChooserBlock()
+    caption = blocks.CharBlock(
+        required=False,
+        help_text='Please remember to properly attribute any images we use.'
+    )
+    url = blocks.CharBlock(
+        required=False,
+        help_text='Optional URL that this figure should link out to.',
+    )
+    square_image = blocks.BooleanBlock(
+        default=True,
+        required=False,
+        help_text='If left checked, the image will be cropped to be square.'
+    )
+
+
+class ImageGridBlock(blocks.StructBlock):
+    grid_items = blocks.ListBlock(ImageGrid())
 
     class Meta:
         # this is probably the wrong icon but let's run with it for now
         icon = 'grip'
-        template = 'wagtailpages/blocks/figure_grid_block.html'
-        group = 'Deprecated'
-
-
-class FigureGridBlock2(blocks.StructBlock):
-    grid_items = blocks.ListBlock(FigureBlock2())
-
-    class Meta:
-        # this is probably the wrong icon but let's run with it for now
-        icon = 'grip'
-        template = 'wagtailpages/blocks/figure_grid_block2.html'
+        template = 'wagtailpages/blocks/image_grid_block.html'
 
 
 class BootstrapSpacerBlock(blocks.StructBlock):
@@ -363,6 +353,13 @@ class PulseProjectList(blocks.StructBlock):
         label='Type of help needed',
     )
 
+    direct_link = blocks.BooleanBlock(
+        default=False,
+        label='Direct link',
+        help_text='Checked: user goes to project link. Unchecked: user goes to pulse entry',
+        required=False,
+    )
+
     class Meta:
         template = 'wagtailpages/blocks/pulse_project_list.html'
         icon = 'site'
@@ -478,6 +475,8 @@ class LatestProfileList(blocks.StructBlock):
             pulse_api=settings.FRONTEND['PULSE_API_DOMAIN'],
             query=parse.urlencode(query_args)
         )
+
+        data = []
 
         try:
             response = request.urlopen(url)

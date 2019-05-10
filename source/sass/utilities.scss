@@ -1,4 +1,4 @@
-@import '../../node_modules/bootstrap/scss/_variables';
+@import "../../node_modules/bootstrap/scss/_variables";
 
 // default for vertical margins ($spacer = 1rem = 16px)
 .my-default {
@@ -19,9 +19,9 @@
 }
 
 .key-item {
-  border-bottom: 4px solid $gray-20;
+  border-bottom: 4px solid $black;
   margin-top: -1.5em;
-  background: white;
+  background: $white;
   position: relative;
 }
 
@@ -58,7 +58,7 @@
 
 .breadcrumb-item {
   &.active {
-    @extend .h6-heading;
+    @extend .body-small;
   }
 
   &:not(.active) {

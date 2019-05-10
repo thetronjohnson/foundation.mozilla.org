@@ -20,20 +20,6 @@ urlpatterns = list(filter(None, [
     # social-sign-on routes so that Google auth works
     url(r'^soc/', include('social_django.urls', namespace='social')),
 
-    # fellowship routes
-
-    url(r'^fellowships/', include('networkapi.fellows.urls')),
-
-    url(r'^fellowship/(?P<path>.*)', RedirectView.as_view(
-        url='/fellowships/%(path)s',
-        query_string=True
-    )),
-
-    url(r'^fellowships/directory/archive', RedirectView.as_view(
-        url='/fellowships/directory',
-        query_string=True
-    )),
-
     # network API routes:
 
     url(r'^api/campaign/', include('networkapi.campaign.urls')),
@@ -54,6 +40,7 @@ urlpatterns = list(filter(None, [
         name='how-do-i-wagtail'
     ),
     url(r'^cms/', include(wagtailadmin_urls)),
+    url(r'^en/cms/', RedirectView.as_view(url='/cms/')),
     url(r'^documents/', include(wagtaildocs_urls)),
     url('^sitemap.xml$', sitemap) if settings.DEBUG else None,
 ]))

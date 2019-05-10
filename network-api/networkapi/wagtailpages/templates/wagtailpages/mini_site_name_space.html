@@ -2,9 +2,10 @@
 
 {% load wagtailcore_tags mini_site_tags %}
 
-
 {% block minisite_title_mb %}
   {% if uses_menu %}
+  {% block minisite_title %}
+  {% endblock %}
   <div class="container">
     <div class="row">
       <div class="col-12">
@@ -12,11 +13,9 @@
       </div>
     </div>
   </div>
+  {% else %}
+    {% block minisite_no_menu %}{% endblock %}
   {% endif %}
 {% endblock %}
-
-
-{% block html_content_classes %}{% if singleton_page %}col-12 col-lg-10 offset-lg-1{% else %}col-12 col-md-9{% endif %}{% endblock %}
-
 
 {% block pre_footer_classes %}{% if singleton_page %}col-12 col-lg-10 offset-lg-1{% else %}col-md-12{% endif %}{% endblock %}
